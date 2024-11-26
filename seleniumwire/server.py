@@ -4,10 +4,11 @@ import logging
 from seleniumwire import storage
 from seleniumwire.handler import InterceptRequestHandler
 from seleniumwire.modifier import RequestModifier
-from seleniumwire.thirdparty.mitmproxy import addons
-from seleniumwire.thirdparty.mitmproxy.master import Master
-from seleniumwire.thirdparty.mitmproxy.options import Options
-from seleniumwire.thirdparty.mitmproxy.server import ProxyConfig, ProxyServer
+from mitmproxy import addons
+from mitmproxy.master import Master
+from mitmproxy.options import Options
+from mitmproxy.tools import dump
+
 from seleniumwire.utils import build_proxy_args, extract_cert_and_key, get_upstream_proxy
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,9 @@ class MitmProxy:
     """Run and manage a mitmproxy server instance."""
 
     def __init__(self, host, port, options):
+        self.host=host
+        self.port=port
+
         self.options = options
 
         # Used to stored captured requests
@@ -39,40 +43,42 @@ class MitmProxy:
 
         self._event_loop = asyncio.new_event_loop()
 
-        mitmproxy_opts = Options()
-
-        self.master = Master(self._event_loop, mitmproxy_opts)
-        self.master.addons.add(*addons.default_addons())
-        self.master.addons.add(SendToLogger())
-        self.master.addons.add(InterceptRequestHandler(self))
-
-        mitmproxy_opts.update(
+        self.opts = Options()
+        self.opts.update(
             confdir=self.storage.home_dir,
             listen_host=host,
             listen_port=port,
             ssl_insecure=not options.get('verify_ssl', DEFAULT_VERIFY_SSL),
-            stream_websockets=DEFAULT_STREAM_WEBSOCKETS,
-            suppress_connection_errors=options.get('suppress_connection_errors', DEFAULT_SUPPRESS_CONNECTION_ERRORS),
+            websocket=DEFAULT_STREAM_WEBSOCKETS,
+            # suppress_connection_errors=options.get('suppress_connection_errors', DEFAULT_SUPPRESS_CONNECTION_ERRORS),
             **build_proxy_args(get_upstream_proxy(self.options)),
             # Options that are prefixed mitm_ are passed through to mitmproxy
             **{k[5:]: v for k, v in options.items() if k.startswith('mitm_')},
         )
-
-        self.master.server = ProxyServer(ProxyConfig(mitmproxy_opts))
+        self.master = dump.DumpMaster(
+            self.opts,
+            loop=self._event_loop,
+            with_termlog=True,
+            with_dumper=True,
+        )
+        # self.master.addons.add(*addons.default_addons())
+        self.master.addons.add(SendToLogger())
+        self.master.addons.add(InterceptRequestHandler(self))
 
         if options.get('disable_capture', False):
             self.scopes = ['$^']
-
+    async def start_proxy(self,host, port):
+        await self.master.run()
+        return self.master
+    
     def serve_forever(self):
         """Run the server."""
-        asyncio.set_event_loop(self._event_loop)
-        self.master.run_loop(self._event_loop)
-
+        asyncio.run(self.start_proxy('localhost', 8080))
     def address(self):
         """Get a tuple of the address and port the proxy server
         is listening on.
         """
-        return self.master.server.address
+        return self.host,self.port
 
     def shutdown(self):
         """Shutdown the server and perform any cleanup."""

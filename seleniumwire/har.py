@@ -8,14 +8,14 @@ from datetime import datetime, timezone
 from typing import List, Set
 
 import seleniumwire
-from seleniumwire.thirdparty.mitmproxy import connections
-from seleniumwire.thirdparty.mitmproxy.http import HTTPFlow
-from seleniumwire.thirdparty.mitmproxy.net.http import cookies
-from seleniumwire.thirdparty.mitmproxy.utils import strutils
+from mitmproxy import connection
+from mitmproxy.http import HTTPFlow
+from mitmproxy.net.http import cookies
+from mitmproxy.utils import strutils
 
 # A list of server seen till now is maintained so we can avoid
 # using 'connect' time for entries that use an existing connection.
-SERVERS_SEEN: Set[connections.ServerConnection] = set()
+SERVERS_SEEN: Set[connection.Connection] = set()
 
 
 def create_har_entry(flow: HTTPFlow) -> dict:
@@ -61,7 +61,7 @@ def create_har_entry(flow: HTTPFlow) -> dict:
     started_date_time = datetime.fromtimestamp(flow.request.timestamp_start, timezone.utc).isoformat()
 
     # Response body size and encoding
-    response_body_size = len(flow.response.raw_content) if flow.response.raw_content else 0
+    response_body_size = len(flow.response.content) if flow.response.content else 0
     response_body_decoded_size = len(flow.response.content) if flow.response.content else 0
     response_body_compression = response_body_decoded_size - response_body_size
 

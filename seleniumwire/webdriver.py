@@ -40,7 +40,7 @@ class DriverCommonMixin:
         """
         self.backend = backend.create(
             addr=seleniumwire_options.pop('addr', '127.0.0.1'),
-            port=seleniumwire_options.get('port', 0),
+            port=seleniumwire_options.get('port', 8080),
             options=seleniumwire_options,
         )
 

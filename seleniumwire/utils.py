@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Dict, NamedTuple
 from urllib.request import _parse_proxy
 
-from seleniumwire.thirdparty.mitmproxy.net.http import encoding as decoder
+from mitmproxy.net import encoding as decoder
 
 log = logging.getLogger(__name__)
 

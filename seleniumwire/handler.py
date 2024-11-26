@@ -4,9 +4,9 @@ from datetime import datetime
 
 from seleniumwire import har
 from seleniumwire.request import Request, Response, WebSocketMessage
-from seleniumwire.thirdparty.mitmproxy.http import HTTPResponse
-from seleniumwire.thirdparty.mitmproxy.net import websockets
-from seleniumwire.thirdparty.mitmproxy.net.http.headers import Headers
+from mitmproxy.http import Response as HTTPResponse
+# from mitmproxy.net import websockets
+from mitmproxy.http import Headers
 from seleniumwire.utils import is_list_alike
 
 log = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ class InterceptRequestHandler:
 
         # Make any modifications to the original request
         # DEPRECATED. This will be replaced by request_interceptor
-        self.proxy.modifier.modify_request(flow.request, bodyattr='raw_content')
+        self.proxy.modifier.modify_request(flow.request, bodyattr='content')
 
         # Convert to one of our requests for handling
         request = self._create_request(flow)
@@ -60,7 +60,7 @@ class InterceptRequestHandler:
                 flow.request.method = request.method
                 flow.request.url = request.url.replace('wss://', 'https://', 1)
                 flow.request.headers = self._to_headers_obj(request.headers)
-                flow.request.raw_content = request.body
+                flow.request.content = request.content
 
         log.info('Capturing request: %s', request.url)
 
@@ -123,7 +123,7 @@ class InterceptRequestHandler:
             flow.response.status_code = response.status_code
             flow.response.reason = response.reason
             flow.response.headers = self._to_headers_obj(response.headers)
-            flow.response.raw_content = response.body
+            flow.response.content = response.body
 
         log.info('Capturing response: %s %s %s', flow.request.url, response.status_code, response.reason)
 
@@ -137,13 +137,13 @@ class InterceptRequestHandler:
             method=flow.request.method,
             url=flow.request.url,
             headers=[(k, v) for k, v in flow.request.headers.items()],
-            body=flow.request.raw_content,
+            body=flow.request.content,
         )
 
         # For websocket requests, the scheme of the request is overwritten with https
         # in the initial CONNECT request so we set the scheme back to wss for capture.
-        if websockets.check_handshake(request.headers) and websockets.check_client_version(request.headers):
-            request.url = request.url.replace('https://', 'wss://', 1)
+        # if websockets.check_handshake(request.headers) and websockets.check_client_version(request.headers):
+        #     request.url = request.url.replace('https://', 'wss://', 1)
 
         request.response = response
 
@@ -154,24 +154,25 @@ class InterceptRequestHandler:
             status_code=flow.response.status_code,
             reason=flow.response.reason,
             headers=[(k, v) for k, v in flow.response.headers.items(multi=True)],
-            body=flow.response.raw_content,
+            body=flow.response.content,
         )
-
         cert = flow.server_conn.cert
-        if cert is not None:
-            response.cert = dict(
-                subject=cert.subject,
-                serial=cert.serial,
-                key=cert.keyinfo,
-                signature_algorithm=cert.x509.get_signature_algorithm(),
-                expired=cert.has_expired,
-                issuer=cert.issuer,
-                notbefore=cert.notbefore,
-                notafter=cert.notafter,
-                organization=cert.organization,
-                cn=cert.cn,
-                altnames=cert.altnames,
-            )
+        # https://github.com/pyca/cryptography/issues/10845
+        # if cert is not None:
+        #     response.cert = dict(
+        #         subject=cert.subject,
+        #         serial=cert.serial,
+        #         key=cert.keyinfo,
+        #         signature_algorithm=cert.to_pyopenssl.get_signature_algorithm(),
+        #         # signature_algorithm=cert.x509.get_signature_algorithm(),
+        #         expired=cert.has_expired,
+        #         issuer=cert.issuer,
+        #         notbefore=cert.notbefore,
+        #         notafter=cert.notafter,
+        #         organization=cert.organization,
+        #         cn=cert.cn,
+        #         altnames=cert.altnames,
+        #     )
 
         return response
 

@@ -1,6 +1,15 @@
 History
 ~~~~~~~
 
+11.0.0 (2024-11-26)
+------------------
+
+* Remove inside mitmproxy from source and import it from pip.
+* Change proxy default port to 8080.
+* Because mitmproxy deleted raw_content,so request.body and response.body have been decoded.
+* Websockets has not been tested.
+* Drop support for response.cert.
+
 5.1.0 (2022-10-15)
 ------------------
 
